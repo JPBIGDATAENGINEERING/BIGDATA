@@ -1,0 +1,347 @@
+﻿
+///////////////////////////////////////////////
+Start the dse service using this command:
+$ sudo service dse start
+
+You stop a node using this command:
+$ sudo service dse stop
+
+Verified status node
+$ nodetool status
+
+Spark Analytics, DSE Graph, and DSE Search node
+$ bin/dse cassandra -k -g -s
+
+DSE Graph and BYOS
+$ bin/dse cassandra -g
+
+SearchAnalytics nodes
+$ bin/dse cassandra -k -s
+///////////////////////////////////////
+
+
+
+BASIC RULES
+Rule 1: Spread Data Evenly Around the Cluster
+Rule 2: Minimize the Number of Partitions Read
+
+CONSULTAS CASSANDRA METADATA
+//////////////////////////////////////////////
+
+SELECT * FROM system."local";
+SELECT * FROM system."compaction_history";
+SELECT * FROM system."peers";
+SELECT * FROM system."size_estimates";
+SELECT * FROM system."sstable_activity";
+
+system_schema
+
+SELECT * FROM system_schema."keyspaces";
+SELECT * FROM system_schema."columns";
+SELECT * FROM system_schema."indexes"
+SELECT * FROM system_schema."tables";
+
+system_traces
+SELECT * FROM system_traces."sessions";
+SELECT activity FROM system_traces."events";
+
+/////////////////////////////////////////////////
+Create a keyspace for a single node
+CREATE KEYSPACE trainig
+  WITH REPLICATION = { 
+   'class' : 'SimpleStrategy', 
+   'replication_factor' : 1 
+  };
+
+
+////////////////////////////////////////////////
+
+SESION II 3/11/17
+
+Breve recuento
+Revisar Simple Key, Composite partition key, Clustering
+Consultas fuera de Key
+Indices
+Colecciones 
+Ejercicios y casos practicos 
+
+
+DATA MODELING AND MORE DATA MODELING
+
+FIRST EXAMPLE
+DS220 PAG 52  SINGLE AND CLUSTERING COLUMN
+
+	****SIMPLE CASE A******
+
+CREATE TABLE videos (
+id int,
+name text,
+runtime int,
+year int,
+PRIMARY KEY(id)
+);
+
+ ******LOAD DATA CASE A ******
+ 
+ INSERT INTO videos (id,name,runtime,year) VALUES (1,'PELOTON',120,1979);
+ INSERT INTO videos (id,name,runtime,year) VALUES (2,'BENHUR',300,1946);
+ INSERT INTO videos (id,name,runtime,year) VALUES (3,'TROYA',120,2000);
+ INSERT INTO videos (id,name,runtime,year) VALUES (4,'DRAGON',120,1994);
+ INSERT INTO videos (id,name,runtime,year) VALUES (5,'MATRIX',120,2001);
+
+	***** SIMPLE CASE B  *******
+COMPOSITE PARTITION KEYS
+
+CREATE TABLE videoscomposite (
+id int,
+name text,
+runtime int,
+year int,
+PRIMARY KEY((year,name))
+);
+
+INSERT INTO videoscomposite (id,name,runtime,year) VALUES (1,'SE ME OLVIDO QUE TE OLVIDE',120,1979);
+INSERT INTO videoscomposite (id,name,runtime,year) VALUES (2,'A DIOS QUE TE VAYA BIEN',300,1946);
+INSERT INTO videoscomposite (id,name,runtime,year) VALUES (3,'LA VUELTA AL MUNDO',120,2000);
+INSERT INTO videoscomposite (id,name,runtime,year) VALUES (4,'LA ISLA ENCANTADA',120,1994);
+INSERT INTO videoscomposite (id,name,runtime,year) VALUES (5,'MAREA ROJA',120,2001);
+ 
+ 
+	***** SIMPLE CASE C  *******
+
+CLUSTERING COLUMN
+CREATE TABLE videosclustering (
+id int,
+name text,
+runtime int,
+year int,
+PRIMARY KEY((year),name)
+);
+
+******LOAD DATA CASE C ******
+ 
+ INSERT INTO videosclustering (id,name,runtime,year) VALUES (1,'PELOTON',120,1979);
+ INSERT INTO videosclustering (id,name,runtime,year) VALUES (2,'LOS DIEZ MANDAMIENTOS',300,1952);
+ INSERT INTO videosclustering (id,name,runtime,year) VALUES (3,'EL QUIJOTE',120,1952);
+ INSERT INTO videosclustering (id,name,runtime,year) VALUES (4,'JESUS',120,2005);
+ INSERT INTO videosclustering (id,name,runtime,year) VALUES (5,'DIAMANTES DE FUEGO',120,2005);
+
+ 
+ *************** WITH ORDER BY *******************
+ 
+CREATE TABLE videosorderby (
+id int,
+name text,
+runtime int,
+year int,
+PRIMARY KEY((year),name)
+) WITH CLUSTERING ORDER BY (name DESC);
+ 
+
+********** LOAD DATA CASE ORDER BY *******
+
+INSERT INTO videosorderby (id,name,runtime,year) VALUES (1,'PELOTON',120,1979);
+INSERT INTO videosorderby (id,name,runtime,year) VALUES (2,'LOS DIEZ MANDAMIENTOS',300,1952);
+INSERT INTO videosorderby (id,name,runtime,year) VALUES (3,'EL QUIJOTE',120,1952);
+INSERT INTO videosorderby (id,name,runtime,year) VALUES (4,'JESUS',120,2005);
+INSERT INTO videosorderby (id,name,runtime,year) VALUES (5,'DIAMANTES DE FUEGO',120,2005);
+ 
+
+****** FORCE sstable generate ****
+
+nodetool flush
+nodetool compact trainig
+
+****** QUERYS OUT THE KEY *****
+videos
+videosclustering
+
+******* INDEX *********
+CREATE INDEX ON videosclustering(artist);
+
+
+************************************************************************************************
+
+***************************  EJERCICIO COLECCIONES ********************************
+
+SET
+
+1.- Creación de una tabla
+
+CREATE TABLE users (
+  user_id text PRIMARY KEY,
+  first_name text,
+  last_name text,
+  emails set<text>
+);
+2.- Insertando registros para poblar el column family
+RECUERDE QUE SET ADMITE CAMPOS UNICOS.
+INSERT INTO users (user_id, first_name, last_name, emails)
+  VALUES('frodo', 'Frodo', 'Baggins', {'f@baggins.com', 'baggins@gmail.com'});
+
+  3.- Adicionar un elemento a un campo set usando el comando UPDATE con el operador (+).
+UPDATE users
+  SET emails = emails + {'fb@friendsofmordor.org'} WHERE user_id = 'frodo';
+
+  4.- Seleccionar email addresses para la tabla user.
+SELECT user_id, emails FROM users WHERE user_id = 'frodo';
+5.-  Remueva todos los elementos del set usando el comando DELETE.
+DELETE emails FROM users WHERE user_id = 'frodo';
+-------------
+Trabajando con List
+1.- ALTER TABLE users ADD top_places list<text>;
+Use el comando  UPDATE para insertar un valor a la lista
+2.- UPDATE users
+  SET top_places = [ 'rivendell', 'rohan','rivendell'  ] WHERE user_id = 'frodo';
+
+
+
+
+Adiciona un nuevo elemento con el comando UPDATE
+3.- UPDATE users
+  SET top_places = top_places + [ 'mordor' ] WHERE user_id = 'frodo';
+4.-  Actualiza un elemento de la lista en una posición particular  
+UPDATE users SET top_places[2] = 'riddermark' WHERE user_id = 'frodo';
+5.- Remueve un elemento de una posición particular
+DELETE top_places[3] FROM users WHERE user_id = 'frodo';
+6.- Remover elementos usando el comando Update
+UPDATE users
+  SET top_places = top_places - ['riddermark'] WHERE user_id = 'frodo';
+7.- Consultar las tabla users
+SELECT user_id, top_places FROM users WHERE user_id = 'frodo';
+
+TRABAJANDO CON MAP
+ALTER TABLE users ADD todo map<timestamp, text>
+Insertando registros con el comando Update.
+UPDATE users
+  SET todo =
+  { '2012-9-24' : 'enter mordor',
+  '2012-10-2 12:00' : 'throw ring into mount doom' }
+  WHERE user_id = 'frodo';
+Actualizar un registro específico por su clave
+UPDATE users SET todo['2012-10-2 12:00'] = 'throw my precious into mount doom'
+  WHERE user_id = 'frodo';
+Insertar varios registtros.
+INSERT INTO users (user_id,todo)
+  VALUES ( { '2013-9-22 12:01'  : 'birthday wishes to Bilbo',
+  '2013-10-1 18:00' : 'Check into Inn of Prancing Pony' });
+
+
+
+Eliminando un registro del Map.
+DELETE todo['2012-9-24'] FROM users WHERE user_id = 'frodo
+
+OTROS EJERCICIOS USANDO MAP E INDICIES
+---------
+cqlsh> USE ks;
+cqlsh:ks> CREATE TABLE data_points (
+            id text PRIMARY KEY,
+            created_at timestamp,
+            previous_event_id varchar,
+            properties map<text,text>
+         );
+cqlsh:ks> create index on data_points (properties);
+cqlsh:ks> INSERT INTO data_points (id, properties) VALUES ('1', { 'fruit' : 'apple', 'band' : 'Beatles' });
+cqlsh:ks> INSERT INTO data_points (id, properties) VALUES ('2', { 'fruit' : 'cherry', 'band' : 'Beatles' });
+cqlsh:ks> SELECT * FROM data_points WHERE properties CONTAINS 'Beatles';
+
+ id | created_at | previous_event_id | properties
+----+------------+-------------------+----------------------------------------
+  2 |       null |              null | {'band': 'Beatles', 'fruit': 'cherry'}
+  1 |       null |              null |  {'band': 'Beatles', 'fruit': 'apple'}
+
+-----------
+create table cinema.movie(
+    id timeuuid,
+    name text,
+    category list<text>,
+    primary key (id)
+);
+
+CREATE index ON cinema.movie (category);
+INSERT INTO cinema.movie (id, name, category) VALUES (now(), 'my movie', ['romance','comedy']);
+SELECT * FROM cinema.movie WHERE category CONTAINS 'romance';
+
+
+ uuid                                 | category               | name
+--------------------------------------+------------------------+----------
+ b9e0d7f0-995f-11e3-b11c-c5d4ddc8930a | ['romance', 'comed`y'] | my movie
+
+/////////////////////////////////////////////////////////////////////////////////////////////////
+
+********************************** EJEMPLOS Y CASOS PRACTICOS ***************************** 
+
+
+
+1.- REVISAR Y MEJORAR 
+
+CREATE TABLE temperature (    
+weather_station text,    
+year int,    
+month int,    
+day int,    
+hour int,    
+temperature double,    
+PRIMARY KEY (weather_station,year,month,day,hour) 
+);
+
+INSERT INTO temperature(weather_station,year,month,day,hour,temperature)  VALUES ('10010:99999',2005,12,1,7,-5.6); 
+INSERT INTO temperature(weather_station,year,month,day,hour,temperature)  VALUES ('10010:99999',2005,12,1,8,-5.1); 
+INSERT INTO temperature(weather_station,year,month,day,hour,temperature)  VALUES ('10010:99999',2005,12,1,9,-4.9); 
+INSERT INTO temperature(weather_station,year,month,day,hour,temperature)  VALUES ('10010:99999',2005,12,1,10,-5.3);
+
+
+2.- PLAYLIST
+CREATE TABLE playlists (
+  id uuid,
+  song_order int,
+  song_id uuid,
+  title text,
+  album text,
+  artist text,
+  PRIMARY KEY  (id, song_order ) );
+
+Agrupar errores por IP
+
+CREATE TABLE access_log (    
+object_id   text,    
+access_date text,      // YYYYMMDD portion of access timestamp    
+access_time timestamp, // Access time to the ms    
+ip_address  inet,      // x.x.x.x inet address    
+PRIMARY KEY ((object_id, access_date), access_time, ip_address) ); 
+
+
+
+
+////////////////////////////
+RESOURCES
+https://docs.datastax.com/en/cql/3.3/cql/cql_reference/cqlCreateKeyspace.html
+https://stackoverflow.com/questions/42532743/cassandra-frozen-keyword-meaning
+
+
+////////////////////////////////////////////////////////////////////
+
+SESION 3 
+VISTAS MATERIALIZADAS
+https://stackoverflow.com/questions/37417176/cassandra-modeling-pattern
+
+
+
+- Tener una visión clara de las técnicas y herramientas para el Rediseño de Procesos, cómo usarlas y cómo adecuarlas a circunstancias específicas.
+- Utilizar herramientas para el diagnóstico, análisis y mejoramiento de procesos
+- Seleccionar y desarrollar la Metodología más adecuada para llevar acabo un Proyecto de Rediseño Estratégico de Procesos.
+- Diagnosticar y monitorear oportunamente los requerimientos de cambios de procesos en sus organizaciones.
+- Identificar indicadores para medir el desempeño de sus procesos.
+
+- Optimización de métodos y tiempos de producción
+
+- Herramientas de evaluación de procesos
+
+- Analisis de Casos de negocio , Vision 360 y su alineacion con el negocio, fuentes datos y tecnologias
+
+
+ 
+
+ 
+
+ 
